@@ -1,0 +1,38 @@
+version: '3'
+
+networks:
+  management:
+    driver: overlay
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.150.0.0/24
+
+services:
+  proxy:
+    command:
+      - "--accesslog"
+      - "--api"
+      - "--defaultentrypoints=http"
+      - "--docker"
+      - "--docker.exposedbydefault=false"
+      - "--docker.swarmmode"
+      - "--docker.watch"
+      - "--entrypoints=Name:http Address::80"
+    deploy:
+      labels:
+        - traefik.backend.loadbalancer.stickiness=true
+        - traefik.docker.network=traefik_management
+        - traefik.enable=true
+        - traefik.frontend.rule=Host:traefik.maclocal
+        - traefik.port=8080
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+    image: traefik:v1.6
+    networks:
+      - management
+    ports:
+      - 80:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

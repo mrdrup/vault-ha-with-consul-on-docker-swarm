@@ -1,0 +1,52 @@
+version: '3.6'
+
+networks:
+  default:
+    external: true
+    name:     traefik_management
+
+services:
+  vault:
+    command: server
+    deploy:
+      labels:
+        - traefik.backend.healthcheck.interval=1s
+        - traefik.backend.healthcheck.path=/v1/sys/health
+        - traefik.docker.network=traefik_management
+        - traefik.enable=true
+        - traefik.frontend.rule=Host:vault.maclocal
+        - traefik.port=8200
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+      update_config:
+        delay:       30s
+        parallelism: 1
+    environment:
+      SKIP_SETCAP:             1
+      VAULT_ADDR:              http://127.0.0.1:8200
+      VAULT_API_ADDR:          http://vault.maclocal
+      VAULT_CLUSTER_INTERFACE: eth0
+      VAULT_UI:                1
+      VAULT_LOCAL_CONFIG:      '{
+        "backend": {
+          "consul": {
+            "address":"{{ .Node.Hostname }}:8500",
+            "path":"vault/"
+          }
+        },
+        "listener":{
+          "tcp": {
+            "address": "0.0.0.0:8200",
+            "tls_disable": 1
+          }
+        },
+        "disable_mlock": "true",
+      }'
+    extra_hosts:
+      - "swarm1:192.168.250.11"
+      - "swarm2:192.168.250.12"
+      - "swarm3:192.168.250.13"
+      - "swarm4:192.168.250.14"
+    hostname: "{{.Node.Hostname}}-{{.Service.Name}}-{{.Task.ID}}"
+    image:    vault

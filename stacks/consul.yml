@@ -1,0 +1,50 @@
+version: '3.6'
+
+networks:
+  default:
+    external: true
+    name:     traefik_management
+
+services:
+  client:
+    command: "agent -retry-join server -client 0.0.0.0"
+    deploy:
+      endpoint_mode: dnsrr
+      mode: global
+      update_config:
+        parallelism: 1
+        delay: 20s
+    environment:
+      CONSUL_BIND_INTERFACE: eth0
+      CONSUL_LOCAL_CONFIG: '{"encrypt": "usIshPjlJacQUxVNktY91Q=="}'
+    hostname: "{{.Node.Hostname}}-{{.Service.Name}}-{{.Task.ID}}"
+    image: consul:latest
+    ports:
+      - target:    8500
+        published: 8500
+        mode:      host
+
+  server:
+    command: "agent -server -retry-join server -bootstrap-expect 3 -client 0.0.0.0 -ui"
+    deploy:
+      endpoint_mode: dnsrr
+      labels:
+        - traefik.backend.loadbalancer.stickiness=true
+        - traefik.enable=true
+        - traefik.frontend.rule=Host:consul.maclocal
+        - traefik.port=8500
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+      update_config:
+        parallelism: 1
+        delay:       60s
+    environment:
+      CONSUL_BIND_INTERFACE: eth0
+      CONSUL_LOCAL_CONFIG: '{
+        "reconnect_timeout": "5h",
+        "encrypt": "usIshPjlJacQUxVNktY91Q=="
+      }'
+    hostname: "{{.Node.Hostname}}-{{.Service.Name}}-{{.Task.ID}}"
+    image: consul:latest
+
